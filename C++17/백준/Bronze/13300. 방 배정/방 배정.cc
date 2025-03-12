@@ -21,8 +21,8 @@ int main(){
     }
     int answer = 0;
     for(int i= 0; i < 6; i++){
-        answer+=(man[i]+1)/2;
-        answer+=(woman[i]+1)/2;
+        answer+=(man[i]+k-1)/k;
+        answer+=(woman[i]+k-1)/k;
     }
     cout<<answer;
 }
