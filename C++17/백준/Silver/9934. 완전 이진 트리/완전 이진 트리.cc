@@ -31,9 +31,9 @@ int main()
     
     inorder(0, n-1, 0);
     
-    for(const vector<int>& level : tree)
+    for(int i = 0; i < k; i++)
     {
-        for(const int& node : level)
+        for(int node : tree[i])
             cout << node << ' ';
         cout << '\n';
     }
