@@ -37,7 +37,7 @@ int main()
         for(int j = 0; j < k; j++)
         {
             cin >> next;
-            cur = &(cur->child[next]);
+            cur = &cur->child[next];
         }
     }
     
