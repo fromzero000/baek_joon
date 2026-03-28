@@ -37,9 +37,7 @@ int main()
         for(int j = 0; j < k; j++)
         {
             cin >> next;
-            if(cur->child.find(next)==cur->child.end())
-                cur->child.insert({next,{}});
-            cur = &cur->child[next];
+            cur = &(cur->child[next]);
         }
     }
     
