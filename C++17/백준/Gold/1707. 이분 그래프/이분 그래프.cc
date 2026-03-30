@@ -1,69 +1,63 @@
 #include <bits/stdc++.h>
 using namespace std;
 
-void solve() {
-    int V, E;
-    cin >> V >> E;
-
-    vector<vector<int>> adj(V + 1);
-    vector<int> color(V + 1, 0);
-
-    for (int i = 0; i < E; ++i) 
+void solve()
+{
+    int v, e;
+    cin >> v >> e;
+    
+    vector<vector<int>> nodes(v+1, vector<int>());
+    vector<int> colors(v+1);
+    queue<int> q;
+    for(int i = 0; i < e; i++)
     {
-        int u, v;
-        cin >> u >> v;
-        adj[u].push_back(v);
-        adj[v].push_back(u);
+        int a, b;
+        cin >> a >> b;
+        nodes[a].push_back(b);
+        nodes[b].push_back(a);
     }
-
     bool isBipartite = true;
-
-    for (int i = 1; i <= V; ++i) 
+    for(int i = 1; i <= v; i++)
     {
-        if (!isBipartite) break;
-        if (color[i] == 0) 
+        if(!isBipartite) break;
+        if(colors[i] == 0)
         {
+            colors[i] = 1;
             queue<int> q;
             q.push(i);
-            color[i] = 1;
-
-            while (!q.empty()) 
+            while(!q.empty())
             {
-                int curr = q.front();
-                q.pop();
-
-                for (int next : adj[curr]) 
+                int cur = q.front(); q.pop();
+                int color = colors[cur];
+                for(int next : nodes[cur])
                 {
-                    if (color[next] == 0) 
-                    {
-                        color[next] = 3 - color[curr];
-                        q.push(next);
-                    } 
-                    else if (color[next] == color[curr]) 
+                    if(colors[next] == color)
                     {
                         isBipartite = false;
                         break;
                     }
+                    if(colors[next] == 0)
+                    {
+                        colors[next] = -color;
+                        q.push(next);
+                    }
                 }
-                if (!isBipartite) break;
             }
+            if(!isBipartite) break;
         }
     }
-    if (isBipartite) 
-        cout << "YES\n";
-    else 
-        cout << "NO\n";
+    cout << (isBipartite?"YES":"NO") << '\n';
 }
-
-int main() 
+int main()
 {
-    ios::sync_with_stdio(false);
-    cin.tie(NULL);
-
-    int K;
-    cin >> K;
-    while (K--) 
+    ios::sync_with_stdio(0);
+    cin.tie(0);
+    
+    int t;
+    cin >> t;
+    
+    while(t--)
+    {
         solve();
-
-    return 0;
+    }
 }
