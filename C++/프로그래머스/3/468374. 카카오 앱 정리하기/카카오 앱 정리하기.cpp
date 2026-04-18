@@ -1,164 +1,176 @@
 #include <string>
 #include <vector>
+#include <map>
+#include <queue>
 #include <algorithm>
+#include <set>
 
 using namespace std;
 
-// 각 앱의 위치와 크기 정보를 담을 구조체
-struct Block {
+struct App
+{
     int r, c, s;
-    bool exists = false;
 };
 
-// 두 블록이 이동 방향에 수직인 축(row 또는 col)을 공유하는지(즉, 충돌 가능한지) 확인
-bool share_axis(const Block& b1, const Block& b2, int arrow) {
-    if (arrow == 1 || arrow == 3) { // 오른쪽, 왼쪽 이동 시 세로축 공유 확인
-        return max(b1.r, b2.r) <= min(b1.r + b1.s - 1, b2.r + b2.s - 1);
-    } else { // 아래쪽, 위쪽 이동 시 가로축 공유 확인
-        return max(b1.c, b2.c) <= min(b1.c + b1.s - 1, b2.c + b2.s - 1);
-    }
-}
-
-// 이동 방향을 기준으로 b1의 앞면(Front)과 b2의 뒷면(Back) 사이의 거리를 계산 (Wrap-around 고려)
-int get_D(const Block& b1, const Block& b2, int arrow, int N, int M) {
-    if (arrow == 1) return (((b2.c - (b1.c + b1.s - 1) - 1) % M) + M) % M;
-    if (arrow == 2) return (((b2.r - (b1.r + b1.s - 1) - 1) % N) + N) % N;
-    if (arrow == 3) return (((b1.c - (b2.c + b2.s - 1) - 1) % M) + M) % M;
-    if (arrow == 4) return (((b1.r - (b2.r + b2.s - 1) - 1) % N) + N) % N;
-    return 0;
-}
-
-// 블록이 steps 번 밀렸을 때의 최종 위치 반환
-pair<int, int> get_new_pos(const Block& b, int steps, int arrow, int N, int M) {
-    int curr_r = b.r, curr_c = b.c;
-    for (int step = 1; step <= steps; step++) {
-        if (arrow == 1) { // Right
-            curr_c++;
-            if (curr_c + b.s > M) curr_c = 0;
-        } else if (arrow == 2) { // Down
-            curr_r++;
-            if (curr_r + b.s > N) curr_r = 0;
-        } else if (arrow == 3) { // Left
-            curr_c--;
-            if (curr_c < 0) curr_c = M - b.s;
-        } else if (arrow == 4) { // Up
-            curr_r--;
-            if (curr_r < 0) curr_r = N - b.s;
-        }
-    }
-    return {curr_r, curr_c};
-}
-
-// 블록이 steps 번 밀렸을 때, 물리적으로 전진한 칸 수를 반환 (반대편으로 넘어갈 땐 크기만큼 점프)
-int get_E(const Block& b, int steps, int arrow, int N, int M) {
-    int adv = 0;
-    int curr_r = b.r, curr_c = b.c;
-    for (int step = 1; step <= steps; step++) {
-        if (arrow == 1) {
-            curr_c++;
-            if (curr_c + b.s > M) { curr_c = 0; adv += b.s; }
-            else adv++;
-        } else if (arrow == 2) {
-            curr_r++;
-            if (curr_r + b.s > N) { curr_r = 0; adv += b.s; }
-            else adv++;
-        } else if (arrow == 3) {
-            curr_c--;
-            if (curr_c < 0) { curr_c = M - b.s; adv += b.s; }
-            else adv++;
-        } else if (arrow == 4) {
-            curr_r--;
-            if (curr_r < 0) { curr_r = N - b.s; adv += b.s; }
-            else adv++;
-        }
-    }
-    return adv;
-}
+int dr[] = {0, 0, 1, 0, -1};
+int dc[] = {0, 1, 0, -1, 0};
 
 vector<vector<int>> solution(vector<vector<int>> board, vector<vector<int>> commands) {
-    int N = board.size();
-    int M = board[0].size();
-    Block blocks[105]; // ID 최대값 100을 충분히 커버하는 배열
-    int max_id = 0;
-
-    // 1. 초기 맵 파싱 (각 앱의 좌표와 크기 수집)
-    for (int i = 0; i < N; i++) {
-        for (int j = 0; j < M; j++) {
+    int n = board.size();
+    int m = board[0].size();
+    map<int, App> apps;
+    vector<bool> visited(101, false);
+    for(int i = 0; i < n; i++)
+    {
+        for(int j = 0; j < m; j++)
+        {
             int id = board[i][j];
-            if (id > 0) {
-                max_id = max(max_id, id);
-                if (!blocks[id].exists) {
-                    blocks[id].exists = true;
-                    blocks[id].r = i;
-                    blocks[id].c = j;
-                    int s = 1;
-                    // 앱이 정사각형이므로 오른쪽으로 연속된 같은 ID 개수만 세어 크기 산출
-                    while (j + s < M && board[i][j + s] == id) s++;
-                    blocks[id].s = s;
-                }
+            if(id != 0 && !visited[id])
+            {
+                visited[id] = true;
+                int s = 0;
+                while(s+j < m && board[i][s+j] == id) s++;
+                apps[id] = {i, j, s};
             }
         }
     }
-
-    // 2. 커맨드 처리
-    for (auto& cmd : commands) {
-        int target = cmd[0];
-        int arrow = cmd[1];
-
-        // 각 블록이 몇 번의 이동 단계를 거쳐야 하는지 기록
-        vector<int> d(max_id + 1, 0);
-        if (blocks[target].exists) d[target] = 1;
-
-        bool changed = true;
-        int safety = 0;
+    auto share_axis = [&](App a1, App a2, int dir)->bool
+    {
+        if(dir == 1 || dir == 3) return max(a1.r, a2.r) < min(a1.r+a1.s, a2.r+a2.s);
+        else return max(a1.c, a2.c) < min(a1.c+a1.s, a2.c+a2.s);
+    };
+    
+    auto get_distance = [&](int a1, int a2, int dir)->int{
+        if(dir == 1) return ((((apps[a2].c - (apps[a1].c + apps[a1].s)) % m) + m) % m);
+        else if(dir == 2) return ((((apps[a2].r - (apps[a1].r + apps[a1].s)) % n) + n) % n);
+        else if(dir == 3) return ((((apps[a1].c - (apps[a2].c + apps[a2].s)) % m) + m) % m);
+        else return ((((apps[a1].r - (apps[a2].r + apps[a2].s)) % n) + n) % n);
+    };
+    
+    auto get_real = [&](App cur, int steps, int dir)->int{
+        int result = 0;
+        for(int step = 1; step <= steps; step++)
+        {
+            if(dir == 1)
+            {
+                if (cur.c + cur.s > m - 1) 
+                {
+                    cur.c = 0; result += cur.s; 
+                }
+                else
+                {
+                    cur.c++; result++; 
+                }
+            }
+            if(dir == 2)
+            {
+                if (cur.r + cur.s > n - 1) 
+                {
+                    cur.r = 0; result += cur.s; 
+                }
+                else
+                {
+                    cur.r++; result++; 
+                }
+            }
+            if(dir == 3)
+            {
+                if (cur.c < 1) 
+                {
+                    cur.c = m-cur.s; result += cur.s; 
+                }
+                else
+                {
+                    cur.c--; result++; 
+                }
+            }
+            if(dir == 4)
+            {
+                if (cur.r < 1) 
+                {
+                    cur.r = n-cur.s; result += cur.s; 
+                }
+                else
+                {
+                    cur.r--; result++; 
+                }
+            }
+        }
+        return result;
+    };
+    
+    
+    auto get_new_pos = [&](App cur, int steps, int dir)->App{
+        App next = cur;
+        for(int step = 1; step <= steps; step++)
+        {
+            if (dir == 1) { if (next.c + next.s > m - 1) next.c = 0; else next.c++; }
+            else if (dir == 2) { if (next.r + next.s > n - 1) next.r = 0; else next.r++; }
+            else if (dir == 3) { if (next.c == 0) next.c = m - next.s; else next.c--; }
+            else if (dir == 4) { if (next.r == 0) next.r = n - next.s; else next.r--; }
+        }
+        return next;
+    };
+    
+    for(const auto& command : commands)
+    {
+        int id = command[0];
+        int dir = command[1];
+        if(!visited[id]) continue;
         
-        // 이동에 따른 연쇄 충돌(Push) 판정 루프
-        while (changed && safety < 2000) {
+        vector<int> moves(101, 0);
+        moves[id] = 1;
+        
+        bool changed = true;
+        while(changed)
+        {
             changed = false;
-            safety++;
-            for (int i = 1; i <= max_id; i++) {
-                if (!blocks[i].exists) continue;
-                for (int j = 1; j <= max_id; j++) {
-                    if (!blocks[j].exists || i == j) continue;
-                    
-                    // 두 블록이 같은 축 선상에 있다면 밀림 판정
-                    if (share_axis(blocks[i], blocks[j], arrow)) {
-                        int D_ij = get_D(blocks[i], blocks[j], arrow, N, M);
-                        int E_i = get_E(blocks[i], d[i], arrow, N, M);
-                        int E_j = get_E(blocks[j], d[j], arrow, N, M);
-
-                        // i 블록의 전진 거리가 j 블록과의 초기 거리 + j 블록의 전진 거리보다 크다면 오버랩 발생 (밀림)
-                        if (E_i > D_ij + E_j) {
-                            while (get_E(blocks[j], d[j], arrow, N, M) < E_i - D_ij) {
-                                d[j]++;
-                            }
+            for(int i = 1; i <= 100; i++)
+            {
+                if(!visited[i]) continue;
+                for(int j = 1; j <= 100; j++)
+                {
+                    if(!visited[j]||i==j) continue;
+                    if(share_axis(apps[i], apps[j], dir))
+                    {
+                        int d_ij = get_distance(i, j, dir);
+                        int d_i = get_real(apps[i], moves[i], dir);
+                        int d_j = get_real(apps[j], moves[j], dir);
+                        
+                        if(d_i > d_ij+d_j)
+                        {
+                            while(get_real(apps[j], moves[j], dir) < d_i - d_ij) moves[j]++;
                             changed = true;
                         }
+                        
                     }
                 }
             }
         }
-
-        // 3. 연산 완료 후 각 블록의 좌표 업데이트
-        for (int i = 1; i <= max_id; i++) {
-            if (blocks[i].exists && d[i] > 0) {
-                pair<int, int> npos = get_new_pos(blocks[i], d[i], arrow, N, M);
-                blocks[i].r = npos.first;
-                blocks[i].c = npos.second;
+        
+        for(int i = 1; i <= 100; i++)
+        {
+            if(!visited[i]||moves[i] == 0) continue;
+            App cur = apps[i];
+            for(int j = cur.r; j < cur.r+cur.s; j++)
+            {
+                for(int k = cur.c; k < cur.c+cur.s; k++)
+                    board[j][k] = 0;
+            }
+        }
+        
+        for(int i = 1; i <= 100; i++)
+        {
+            if(!visited[i]||moves[i] == 0) continue;
+            apps[i] = get_new_pos(apps[i], moves[i], dir);
+            App cur = apps[i];
+            for(int j = cur.r; j < cur.r+cur.s; j++)
+            {
+                for(int k = cur.c; k < cur.c+cur.s; k++)
+                    board[j][k] = i;
             }
         }
     }
-
-    // 4. 최종 board 생성
-    vector<vector<int>> answer(N, vector<int>(M, 0));
-    for (int id = 1; id <= max_id; id++) {
-        if (blocks[id].exists) {
-            for (int r = 0; r < blocks[id].s; r++) {
-                for (int c = 0; c < blocks[id].s; c++) {
-                    answer[blocks[id].r + r][blocks[id].c + c] = id;
-                }
-            }
-        }
-    }
-    return answer;
+    
+    return board;
 }
